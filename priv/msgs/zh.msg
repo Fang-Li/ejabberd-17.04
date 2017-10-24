@@ -438,3 +438,24 @@
 {"Your Jabber account was successfully created.","你的Jabber帐户已成功创建."}.
 {"Your Jabber account was successfully deleted.","你的 Jabber 帐户已成功删除."}.
 {"Your messages to ~s are being blocked. To unblock them, visit ~s","您发送给~s的消息已被阻止. 要解除阻止, 请访问 ~s"}.
+
+{"system_102001","你邀请 ~s 加入本群"}.
+{"system_102002","~s 邀请 ~s 加入本群"}.
+{"system_105001","~s 加入本群"}.
+{"system_105002","你已加入本群，开始群聊吧！"}.
+{"system_107","~s 已退出本群组"}.
+{"system_108001","你被群管移出了本群"}.
+{"system_108002","~s 被群管移出本群"}.
+{"system_109","本群组已被解散"}.
+{"system_110","群名称已修改为 ~s"}.
+{"system_119","你所在的 ~s 群组资料已变更"}.
+{"system_120","你已成为群 ~s 管理员"}.
+{"system_121","你已被取消群 ~s 管理员"}.
+{"system_500_1","您今天剩余 ~s 次跟陌生人打招呼的机会"}.
+{"system_500_2","您今天跟陌生人打招呼的机会已经用完~n找个好友聊吧"}.
+{"system_500_4","请等待对方回复"}.
+{"source_yuejian.net","约你"}.
+{"source_yiqibo.tv","亿企播"}.
+{"source_youxi01.cn","呦嬉"}.
+{"source_17jlyq.com","晋L约起"}.
+{"source_lqzbo.com","LQ乐趣直播"}.

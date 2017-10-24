@@ -1009,7 +1009,7 @@ validate_opts(#state{opts = Opts} = State) ->
 					false
 				end;
 			    _ ->
-				?ERROR_MSG("unknown option '~s' will be likely"
+				?INFO_MSG("unknown option '~s' will be likely"
 					   " ignored", [Opt]),
 				true
 			end

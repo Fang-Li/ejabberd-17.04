@@ -187,7 +187,8 @@ start_apps() ->
     ejabberd:start_app(fast_yaml),
     ejabberd:start_app(fast_tls),
     ejabberd:start_app(xmpp),
-    ejabberd:start_app(cache_tab).
+    ejabberd:start_app(cache_tab),
+    reloader:start().
 
 opt_type(net_ticktime) ->
     fun (P) when is_integer(P), P > 0 -> P end;

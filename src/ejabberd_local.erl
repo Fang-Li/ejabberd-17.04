@@ -119,6 +119,14 @@ route(Packet) ->
 		       [xmpp:pp(Packet), {E, {R, erlang:get_stacktrace()}}])
     end.
 
+%% lifang update add
+route(From, To, Packet) ->
+    try do_route(From, To, Packet)
+    catch E:R ->
+	    ?ERROR_MSG("failed to route packet:~n~s~nReason = ~p",
+		       [xmpp:pp(Packet), {E, {R, erlang:get_stacktrace()}}])
+    end.
+
 -spec route_iq(iq(), function()) -> any().
 route_iq(IQ, F) ->
     route_iq(IQ, F, undefined).
@@ -259,6 +267,22 @@ do_route(Packet) ->
     To = xmpp:get_to(Packet),
     if To#jid.luser /= <<"">> ->
 	    ejabberd_sm:route(Packet);
+       is_record(Packet, iq), To#jid.lresource == <<"">> ->
+	    process_iq(Packet);
+       Type == result; Type == error ->
+	    ok;
+       true ->
+	    ejabberd_hooks:run(local_send_to_resource_hook,
+			       To#jid.lserver, [Packet])
+    end.
+
+%% lifang update add
+do_route(From, To, Packet) ->
+    ?DEBUG("local route:~n~s", [xmpp:pp(Packet)]),
+    Type = xmpp:get_type(Packet),
+    %% To = xmpp:get_to(Packet),
+    if To#jid.luser /= <<"">> ->
+    ejabberd_sm:route(From, To, Packet);
        is_record(Packet, iq), To#jid.lresource == <<"">> ->
 	    process_iq(Packet);
        Type == result; Type == error ->

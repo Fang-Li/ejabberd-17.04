@@ -499,3 +499,22 @@
                      children = [] :: [{xmlcdata, iodata()} | xmlelement()]}).
 
 -type xmlelement() :: #xmlelement{}.
+
+
+
+
+-record(text, {lang = <<>> :: binary(),
+               data = <<>> :: binary()}).
+-record(message, {id = <<>> :: binary(),
+                  type = normal :: message_type(),
+                  lang = <<>> :: binary(),
+                  from :: undefined | jid:jid(),
+                  to :: undefined | jid:jid(),
+                  subject = [] :: [#text{}],
+                  body = [] :: [#text{}],
+                  thread :: undefined | binary(),
+                  sub_els = [] ,
+		          meta = #{} :: map()}).
+
+-type message_type() :: chat | error | groupchat | headline | normal.
+

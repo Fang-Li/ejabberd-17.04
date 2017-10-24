@@ -32,48 +32,40 @@
 -behaviour(ejabberd_auth).
 
 -export([start/1, stop/1, set_password/3, check_password/4,
-	 check_password/6, try_register/3,
-	 dirty_get_registered_users/0, get_vh_registered_users/1,
-	 get_vh_registered_users/2,
-	 get_vh_registered_users_number/1,
-	 get_vh_registered_users_number/2, get_password/2,
-	 get_password_s/2, is_user_exists/2, remove_user/2,
-	 remove_user/3, store_type/0, plain_password_required/0,
-	 opt_type/1]).
+     check_password/6, try_register/3,
+     dirty_get_registered_users/0, get_vh_registered_users/1,
+     get_vh_registered_users/2,
+     get_vh_registered_users_number/1,
+     get_vh_registered_users_number/2, get_password/2,
+     get_password_s/2, is_user_exists/2, remove_user/2,
+     remove_user/3, store_type/0, plain_password_required/0,
+     opt_type/1]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
-
+-define(HTTPHead,"application/x-www-form-urlencoded").
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 start(Host) ->
-    Cmd = ejabberd_config:get_option(
-            {extauth_program, Host},
-            fun(V) ->
-                    binary_to_list(iolist_to_binary(V))
-            end,
-            "extauth"),
-    extauth:start(Host, Cmd),
-    check_cache_last_options(Host),
-    ejabberd_auth_mnesia:start(Host).
-
-stop(Host) ->
-    extauth:stop(Host),
-    ejabberd_auth_mnesia:stop(Host).
+  inets:start().
+  
+stop(_Host) ->
+   ok.
 
 check_cache_last_options(Server) ->
+    %% if extauth_cache is enabled, then a mod_last module must also be enabled
     case get_cache_option(Server) of
       false -> no_cache;
       {true, _CacheTime} ->
-	  case get_mod_last_configured(Server) of
-	    no_mod_last ->
-		?ERROR_MSG("In host ~p extauth is used, extauth_cache "
-			   "is enabled but mod_last is not enabled.",
-			   [Server]),
-		no_cache;
-	    _ -> cache
-	  end
+      case get_mod_last_configured(Server) of
+        no_mod_last ->
+        ?ERROR_MSG("In host ~p extauth is used, extauth_cache "
+               "is enabled but mod_last is not enabled.",
+               [Server]),
+        no_cache;
+        _ -> cache
+      end
     end.
 
 plain_password_required() -> true.
@@ -82,25 +74,25 @@ store_type() -> external.
 
 check_password(User, AuthzId, Server, Password) ->
     if AuthzId /= <<>> andalso AuthzId /= User ->
-	    false;
+        false;
        true ->
-	    case get_cache_option(Server) of
-	      false ->
-		  check_password_extauth(User, AuthzId, Server, Password);
-	      {true, CacheTime} ->
-		  check_password_cache(User, AuthzId, Server, Password,
-				       CacheTime)
-	    end
+        case get_cache_option(Server) of
+          false ->
+          check_password_extauth(User, AuthzId, Server, Password);
+          {true, CacheTime} ->
+          check_password_cache(User, AuthzId, Server, Password,
+                       CacheTime)
+        end
     end.
 
 check_password(User, AuthzId, Server, Password, _Digest,
-	       _DigestGen) ->
+           _DigestGen) ->
     check_password(User, AuthzId, Server, Password).
 
 set_password(User, Server, Password) ->
     case extauth:set_password(User, Server, Password) of
       true ->
-	  set_password_mnesia(User, Server, Password), ok;
+      set_password_mnesia(User, Server, Password), ok;
       _ -> {error, unknown_problem}
     end.
 
@@ -108,7 +100,7 @@ try_register(User, Server, Password) ->
     case get_cache_option(Server) of
       false -> try_register_extauth(User, Server, Password);
       {true, _CacheTime} ->
-	  try_register_external_cache(User, Server, Password)
+      try_register_external_cache(User, Server, Password)
     end.
 
 dirty_get_registered_users() ->
@@ -119,21 +111,21 @@ get_vh_registered_users(Server) ->
 
 get_vh_registered_users(Server, Data) ->
     ejabberd_auth_mnesia:get_vh_registered_users(Server,
-						   Data).
+                           Data).
 
 get_vh_registered_users_number(Server) ->
     ejabberd_auth_mnesia:get_vh_registered_users_number(Server).
 
 get_vh_registered_users_number(Server, Data) ->
     ejabberd_auth_mnesia:get_vh_registered_users_number(Server,
-							  Data).
+                              Data).
 
 %% The password can only be returned if cache is enabled, cached info exists and is fresh enough.
 get_password(User, Server) ->
     case get_cache_option(Server) of
       false -> false;
       {true, CacheTime} ->
-	  get_password_cache(User, Server, CacheTime)
+      get_password_cache(User, Server, CacheTime)
     end.
 
 get_password_s(User, Server) ->
@@ -144,33 +136,29 @@ get_password_s(User, Server) ->
 
 %% @spec (User, Server) -> true | false | {error, Error}
 is_user_exists(User, Server) ->
-    try extauth:is_user_exists(User, Server) of
-      Res -> Res
-    catch
-      _:Error -> {error, Error}
-    end.
+    true.
 
 remove_user(User, Server) ->
     case extauth:remove_user(User, Server) of
       false -> false;
       true ->
-	  case get_cache_option(Server) of
-	    false -> false;
-	    {true, _CacheTime} ->
-		ejabberd_auth_mnesia:remove_user(User, Server)
-	  end
+      case get_cache_option(Server) of
+        false -> false;
+        {true, _CacheTime} ->
+        ejabberd_auth_mnesia:remove_user(User, Server)
+      end
     end.
 
 remove_user(User, Server, Password) ->
     case extauth:remove_user(User, Server, Password) of
       false -> false;
       true ->
-	  case get_cache_option(Server) of
-	    false -> false;
-	    {true, _CacheTime} ->
-		ejabberd_auth_mnesia:remove_user(User, Server,
-						   Password)
-	  end
+      case get_cache_option(Server) of
+        false -> false;
+        {true, _CacheTime} ->
+        ejabberd_auth_mnesia:remove_user(User, Server,
+                           Password)
+      end
     end.
 
 %%%
@@ -190,9 +178,43 @@ get_cache_option(Host) ->
 
 %% @spec (User, AuthzId, Server, Password) -> true | false
 check_password_extauth(User, _AuthzId, Server, Password) ->
-    extauth:check_password(User, Server, Password) andalso
-      Password /= <<"">>.
-
+    AUTH_ENABLE =  ejabberd_config:get_option({auth_enable,Server},fun(V)->V end, false),
+    ?INFO_MSG("###### liangc-auth ::> AUTH_ENABLE=~p ; Server=~p ; User=~p ; Password=~p",[AUTH_ENABLE,Server,User,Password]),
+    case AUTH_ENABLE of 
+        false ->
+            true;
+        _->
+            HTTPTarget =  ejabberd_config:get_option({http_server,Server},fun(V)->V end,undefined),
+            HTTPTarget2 = binary_to_list(HTTPTarget),
+            %% INPUT ::> {"sn":"123456789","service":"service.sso","method":"check_token","params":{"token":"987654321"}}
+            %% OUTPUT {"success":true,"entity":"xxx"}
+            {SN,TOKEN} = {list_to_binary(os:cmd("uuidgen")--"\n"),list_to_binary(Password)},
+            {Service,Method} = {list_to_binary("ejabberd"),list_to_binary("check_token")},
+            PostBody = {[{service,Service},{method,Method},{sn,SN},{params,{[{token,TOKEN}]}}]},    
+            Form = "body="++ binary_to_list(jiffy:encode(PostBody)),
+            ?INFO_MSG("###### liangc-auth HTTP_TARGET=~p ; request=~p",[HTTPTarget2,Form]),
+                case httpc:request(post,{HTTPTarget2,[],?HTTPHead, Form},[],[]) of   
+                    {ok, {_,_,Body}}-> 
+                        DBody = jiffy:decode(Body),
+                        case ej:get({"success"},DBody) of 
+                          true -> 
+                            true;
+                          false -> 
+                            Entity = ej:get({"entity"},DBody),
+                            ?INFO_MSG("liangc-auth error: ~p~n",[binary_to_list(Entity)]),
+                            false;
+                          _ -> 
+                            ?ERROR_MSG("liangc-auth error: ~p~n",[DBody]),
+                            false
+                        end;
+                    {error, Reason}->
+                        ?ERROR_MSG("##### liangc-auth error cause ~p~n",[Reason]) ,
+                        false ;
+                    _R ->
+                       ?ERROR_MSG("###### liangc-auth error cause ~p~n",[_R]),
+                       false
+                end
+    end.
 %% @spec (User, Server, Password) -> true | false
 try_register_extauth(User, Server, Password) ->
     extauth:try_register(User, Server, Password).
@@ -200,33 +222,33 @@ try_register_extauth(User, Server, Password) ->
 check_password_cache(User, AuthzId, Server, Password, 0) ->
     check_password_external_cache(User, AuthzId, Server, Password);
 check_password_cache(User, AuthzId, Server, Password,
-		     CacheTime) ->
+             CacheTime) ->
     case get_last_access(User, Server) of
       online ->
-	  check_password_mnesia(User, AuthzId, Server, Password);
+      check_password_mnesia(User, AuthzId, Server, Password);
       never ->
-	  check_password_external_cache(User, AuthzId, Server, Password);
+      check_password_external_cache(User, AuthzId, Server, Password);
       mod_last_required ->
-	  ?ERROR_MSG("extauth is used, extauth_cache is enabled "
-		     "but mod_last is not enabled in that "
-		     "host",
-		     []),
-	  check_password_external_cache(User, AuthzId, Server, Password);
+      ?ERROR_MSG("extauth is used, extauth_cache is enabled "
+             "but mod_last is not enabled in that "
+             "host",
+             []),
+      check_password_external_cache(User, AuthzId, Server, Password);
       TimeStamp ->
-	  case is_fresh_enough(TimeStamp, CacheTime) of
-	    %% If no need to refresh, check password against Mnesia
-	    true ->
-		case check_password_mnesia(User, AuthzId, Server, Password) of
-		  %% If password valid in Mnesia, accept it
-		  true -> true;
-		  %% Else (password nonvalid in Mnesia), check in extauth and cache result
-		  false ->
-		      check_password_external_cache(User, AuthzId, Server, Password)
-		end;
-	    %% Else (need to refresh), check in extauth and cache result
-	    false ->
-		check_password_external_cache(User, AuthzId, Server, Password)
-	  end
+      case is_fresh_enough(TimeStamp, CacheTime) of
+        %% If no need to refresh, check password against Mnesia
+        true ->
+        case check_password_mnesia(User, AuthzId, Server, Password) of
+          %% If password valid in Mnesia, accept it
+          true -> true;
+          %% Else (password nonvalid in Mnesia), check in extauth and cache result
+          false ->
+              check_password_external_cache(User, AuthzId, Server, Password)
+        end;
+        %% Else (need to refresh), check in extauth and cache result
+        false ->
+        check_password_external_cache(User, AuthzId, Server, Password)
+      end
     end.
 
 get_password_mnesia(User, Server) ->
@@ -238,23 +260,23 @@ get_password_cache(User, Server, CacheTime) ->
       online -> get_password_mnesia(User, Server);
       never -> false;
       mod_last_required ->
-	  ?ERROR_MSG("extauth is used, extauth_cache is enabled "
-		     "but mod_last is not enabled in that "
-		     "host",
-		     []),
-	  false;
+      ?ERROR_MSG("extauth is used, extauth_cache is enabled "
+             "but mod_last is not enabled in that "
+             "host",
+             []),
+      false;
       TimeStamp ->
-	  case is_fresh_enough(TimeStamp, CacheTime) of
-	    true -> get_password_mnesia(User, Server);
-	    false -> false
-	  end
+      case is_fresh_enough(TimeStamp, CacheTime) of
+        true -> get_password_mnesia(User, Server);
+        false -> false
+      end
     end.
 
 %% Check the password using extauth; if success then cache it
 check_password_external_cache(User, AuthzId, Server, Password) ->
     case check_password_extauth(User, AuthzId, Server, Password) of
       true ->
-	  set_password_mnesia(User, Server, Password), true;
+      set_password_mnesia(User, Server, Password), true;
       false -> false
     end.
 
@@ -262,14 +284,14 @@ check_password_external_cache(User, AuthzId, Server, Password) ->
 try_register_external_cache(User, Server, Password) ->
     case try_register_extauth(User, Server, Password) of
       {atomic, ok} = R ->
-	  set_password_mnesia(User, Server, Password), R;
+      set_password_mnesia(User, Server, Password), R;
       _ -> {error, not_allowed}
     end.
 
 %% @spec (User, AuthzId, Server, Password) -> true | false
 check_password_mnesia(User, AuthzId, Server, Password) ->
     ejabberd_auth_mnesia:check_password(User, AuthzId, Server,
-					  Password).
+                      Password).
 
 %% @spec (User, Server, Password) -> ok | {error, invalid_jid}
 set_password_mnesia(User, Server, Password) ->
@@ -277,7 +299,7 @@ set_password_mnesia(User, Server, Password) ->
 %%       TimeLast = online | never | integer()
 %%       CacheTime = integer() | false
     ejabberd_auth_mnesia:set_password(User, Server,
-					Password).
+                    Password).
 
 is_fresh_enough(TimeStampLast, CacheTime) ->
     Now = p1_time_compat:system_time(seconds),
@@ -290,11 +312,11 @@ is_fresh_enough(TimeStampLast, CacheTime) ->
 get_last_access(User, Server) ->
     case ejabberd_sm:get_user_resources(User, Server) of
       [] ->
-	  case get_last_info(User, Server) of
-	    mod_last_required -> mod_last_required;
-	    not_found -> never;
-	    {ok, Timestamp, _Status} -> Timestamp
-	  end;
+      case get_last_info(User, Server) of
+        mod_last_required -> mod_last_required;
+        not_found -> never;
+        {ok, Timestamp, _Status} -> Timestamp
+      end;
       _ -> online
     end.
 %% @spec (User, Server) -> {ok, Timestamp, Status} | not_found | mod_last_required
@@ -320,12 +342,12 @@ get_mod_last_configured(Server) ->
 
 is_configured(Host, Module) ->
     Os = ejabberd_config:get_option({modules, Host},
-					  fun(M) when is_list(M) -> M end),
+                      fun(M) when is_list(M) -> M end),
     lists:keymember(Module, 1, Os).
 
 opt_type(extauth_cache) ->
     fun (false) -> undefined;
-	(I) when is_integer(I), I >= 0 -> I
+    (I) when is_integer(I), I >= 0 -> I
     end;
 opt_type(extauth_program) ->
     fun (V) -> binary_to_list(iolist_to_binary(V)) end;

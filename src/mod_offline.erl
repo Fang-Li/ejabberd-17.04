@@ -479,31 +479,42 @@ need_to_store(LServer, #message{type = Type} = Packet) ->
     end.
 
 -spec store_packet({any(), message()}) -> {any(), message()}.
+
 store_packet({_Action, #message{from = From, to = To} = Packet} = Acc) ->
+	case ejabberd_config:get_option({ack_from ,To#jid.lserver},fun(V)->V end) of
+	    true -> false;
+	    _ -> 
+			case aa_group_chat:is_group_chat(To) of
+			  true -> stop;
+			  _ -> store_packet(old,Acc)
+			end
+	end.
+
+store_packet(old,{_Action, #message{from = From, to = To} = Packet} = Acc) ->
     case need_to_store(To#jid.lserver, Packet) of
-	true ->
-	    case check_event(Packet) of
-		true ->
-		    #jid{luser = LUser, lserver = LServer} = To,
-		    case ejabberd_hooks:run_fold(store_offline_message, LServer,
-						 Packet, []) of
-			drop ->
-			    Acc;
-			NewPacket ->
-			    TimeStamp = p1_time_compat:timestamp(),
-			    Expire = find_x_expire(TimeStamp, NewPacket),
-			    gen_mod:get_module_proc(To#jid.lserver, ?MODULE) !
-				#offline_msg{us = {LUser, LServer},
-					     timestamp = TimeStamp,
-					     expire = Expire,
-					     from = From,
-					     to = To,
-					     packet = NewPacket},
-			    {offlined, NewPacket}
-		    end;
-		_ -> Acc
-	    end;
-	false -> Acc
+	    true ->
+	        case check_event(Packet) of
+	    	true ->
+	    	    #jid{luser = LUser, lserver = LServer} = To,
+	    	    case ejabberd_hooks:run_fold(store_offline_message, LServer,
+	    					 Packet, []) of
+	    		drop ->
+	    		    Acc;
+	    		NewPacket ->
+	    		    TimeStamp = p1_time_compat:timestamp(),
+	    		    Expire = find_x_expire(TimeStamp, NewPacket),
+	    		    gen_mod:get_module_proc(To#jid.lserver, ?MODULE) !
+	    			#offline_msg{us = {LUser, LServer},
+	    				     timestamp = TimeStamp,
+	    				     expire = Expire,
+	    				     from = From,
+	    				     to = To,
+	    				     packet = NewPacket},
+	    		    {offlined, NewPacket}
+	    	    end;
+	    	_ -> Acc
+	        end;
+	    false -> Acc
     end.
 
 -spec check_store_hint(message()) -> store | no_store | none.

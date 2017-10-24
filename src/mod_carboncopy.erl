@@ -62,7 +62,8 @@ start(Host, Opts) ->
     Mod:init(Host, Opts),
     ejabberd_hooks:add(unset_presence_hook,Host, ?MODULE, remove_connection, 10),
     %% why priority 89: to define clearly that we must run BEFORE mod_logdb hook (90)
-    ejabberd_hooks:add(user_send_packet,Host, ?MODULE, user_send_packet, 89),
+    %% lifang update
+    %% ejabberd_hooks:add(user_send_packet,Host, ?MODULE, user_send_packet, 89),
     ejabberd_hooks:add(user_receive_packet,Host, ?MODULE, user_receive_packet, 89),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_CARBONS_2, ?MODULE, iq_handler, IQDisc).
 
@@ -145,6 +146,9 @@ user_send_packet({Packet, C2SState}) ->
 
 -spec user_receive_packet({stanza(), ejabberd_c2s:state()})
       -> {stanza(), ejabberd_c2s:state()} | {stop, {stanza(), ejabberd_c2s:state()}}.
+%% lifang update add 
+user_receive_packet({#xmlel{name = <<"message">>} = Packet, #{jid := JID} = C2SState}) ->
+    {Packet, C2SState};
 user_receive_packet({Packet, #{jid := JID} = C2SState}) ->
     To = xmpp:get_to(Packet),
     case check_and_forward(JID, To, Packet, received) of

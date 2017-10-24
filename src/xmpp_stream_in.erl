@@ -334,6 +334,8 @@ handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
 		    end,
 	      send_pkt(State1, Err)
       end);
+
+%% lifang update 	  
 handle_info({'$gen_event', {xmlstreamelement, El}},
 	    #{xmlns := NS, mod := Mod} = State) ->
     noreply(
@@ -344,7 +346,9 @@ handle_info({'$gen_event', {xmlstreamelement, El}},
 		       end,
 	      case is_disconnected(State1) of
 		  true -> State1;
-		  false -> process_element(Pkt, State1)
+
+		  %% lifang update
+		  false -> process_element(El, Pkt, State1)
 	      end
       catch _:{xmpp_codec, Why} ->
 	      State1 = try Mod:handle_recv(El, {error, Why}, State)
@@ -528,8 +532,10 @@ process_stream(#stream_start{to = #jid{server = Server, lserver = LServer},
 	    end
     end.
 
--spec process_element(xmpp_element(), state()) -> state().
-process_element(Pkt, #{stream_state := StateName, lang := Lang} = State) ->
+%% lifang update
+
+-spec process_element(xmpp_element(), xmpp_element(), state()) -> state().
+process_element(El, Pkt, #{stream_state := StateName, lang := Lang} = State) ->
     case Pkt of
 	#starttls{} when StateName == wait_for_starttls;
 			 StateName == wait_for_sasl_request ->
@@ -581,7 +587,7 @@ process_element(Pkt, #{stream_state := StateName, lang := Lang} = State) ->
 	_ when StateName == wait_for_bind ->
 	    process_bind(Pkt, State);
 	_ when StateName == established ->
-	    process_authenticated_packet(Pkt, State)
+	    process_authenticated_packet(El, Pkt, State)
     end.
 
 -spec process_unauthenticated_packet(xmpp_element(), state()) -> state().
@@ -593,12 +599,14 @@ process_unauthenticated_packet(Pkt, #{mod := Mod} = State) ->
 	    send(State, Err)
     end.
 
--spec process_authenticated_packet(xmpp_element(), state()) -> state().
-process_authenticated_packet(Pkt, #{mod := Mod} = State) ->
+%% lifang update
+
+-spec process_authenticated_packet(xmpp_element(), xmpp_element(), state()) -> state().
+process_authenticated_packet(El, Pkt, #{mod := Mod} = State) ->
     Pkt1 = set_lang(Pkt, State),
     case set_from_to(Pkt1, State) of
 	{ok, Pkt2} ->
-	    try Mod:handle_authenticated_packet(Pkt2, State)
+	    try Mod:handle_authenticated_packet(El, Pkt2, State)
 	    catch _:undef ->
 		    Err = xmpp:err_service_unavailable(),
 		    send_error(State, Pkt, Err)

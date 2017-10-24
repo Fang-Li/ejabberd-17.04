@@ -36,26 +36,26 @@
 
 %% API
 -export([route/1,
-	 route_error/2,
-	 register_route/2,
-	 register_route/3,
-	 register_route/4,
-	 register_routes/1,
-	 host_of_route/1,
-	 process_iq/1,
-	 unregister_route/1,
-	 unregister_route/2,
-	 unregister_routes/1,
-	 get_all_routes/0,
-	 is_my_route/1,
-	 is_my_host/1,
-	 find_routes/0,
-	 get_backend/0]).
+     route_error/2,
+     register_route/2,
+     register_route/3,
+     register_route/4,
+     register_routes/1,
+     host_of_route/1,
+     process_iq/1,
+     unregister_route/1,
+     unregister_route/2,
+     unregister_routes/1,
+     get_all_routes/0,
+     is_my_route/1,
+     is_my_host/1,
+     find_routes/0,
+     get_backend/0]).
 
 -export([start_link/0]).
 
 -export([init/1, handle_call/3, handle_cast/2,
-	 handle_info/2, terminate/2, code_change/3, opt_type/1]).
+     handle_info/2, terminate/2, code_change/3, opt_type/1]).
 
 %% Deprecated functions
 -export([route/3, route_error/4]).
@@ -68,7 +68,7 @@
 
 -callback init() -> any().
 -callback register_route(binary(), binary(), local_hint(),
-			 undefined | pos_integer(), pid()) -> ok | {error, term()}.
+             undefined | pos_integer(), pid()) -> ok | {error, term()}.
 -callback unregister_route(binary(), undefined | pos_integer(), pid()) -> ok | {error, term()}.
 -callback find_routes(binary()) -> [#route{}].
 -callback find_routes() -> [#route{}].
@@ -89,42 +89,45 @@ start_link() ->
 route(Packet) ->
     try do_route(Packet)
     catch E:R ->
-	    ?ERROR_MSG("failed to route packet:~n~s~nReason = ~p",
-		       [xmpp:pp(Packet), {E, {R, erlang:get_stacktrace()}}])
+        ?ERROR_MSG("failed to route packet:~n~s~nReason = ~p",
+               [xmpp:pp(Packet), {E, {R, erlang:get_stacktrace()}}])
     end.
 
--spec route(jid(), jid(), xmlel() | stanza()) -> ok.
-route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
-    try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
-	Pkt -> route(From, To, Pkt)
-    catch _:{xmpp_codec, Why} ->
-	    ?ERROR_MSG("failed to decode xml element ~p when "
-		       "routing from ~s to ~s: ~s",
-		       [El, jid:encode(From), jid:encode(To),
-			xmpp:format_error(Why)])
-    end;
+%% lifang update
+
+%% -spec route(jid(), jid(), xmlel() | stanza()) -> ok.
+%% route(#jid{} = From, #jid{} = To, #xmlel{} = El) ->
+%%     try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
+%%     Pkt -> route(From, To, Pkt)
+%%     catch _:{xmpp_codec, Why} ->
+%%         ?ERROR_MSG("failed to decode xml element ~p when "
+%%                "routing from ~s to ~s: ~s",
+%%                [El, jid:encode(From), jid:encode(To),
+%%             xmpp:format_error(Why)])
+%%     end;
+
 route(#jid{} = From, #jid{} = To, Packet) ->
-    case catch do_route(xmpp:set_from_to(Packet, From, To)) of
-	{'EXIT', Reason} ->
-	    ?ERROR_MSG("~p~nwhen processing: ~p",
-		       [Reason, {From, To, Packet}]);
-	_ ->
-	    ok
+    case catch do_route(From, To, Packet) of
+    {'EXIT', Reason} ->
+        ?ERROR_MSG("~p~nwhen processing: ~p",
+               [Reason, {From, To, Packet}]);
+    _ ->
+        ok
     end.
 
 -spec route_error(stanza(), stanza_error()) -> ok.
 route_error(Packet, Err) ->
     Type = xmpp:get_type(Packet),
     if Type == error; Type == result ->
-	    ok;
+        ok;
        true ->
-	    route(xmpp:make_error(Packet, Err))
+        route(xmpp:make_error(Packet, Err))
     end.
 
 %% Route the error packet only if the originating packet is not an error itself.
 %% RFC3920 9.3.1
 -spec route_error(jid(), jid(), xmlel(), xmlel()) -> ok;
-		 (jid(), jid(), stanza(), stanza_error()) -> ok.
+         (jid(), jid(), stanza(), stanza_error()) -> ok.
 route_error(From, To, #xmlel{} = ErrPacket, #xmlel{} = OrigPacket) ->
     #xmlel{attrs = Attrs} = OrigPacket,
     case <<"error">> == fxml:get_attr_s(<<"type">>, Attrs) of
@@ -134,9 +137,9 @@ route_error(From, To, #xmlel{} = ErrPacket, #xmlel{} = OrigPacket) ->
 route_error(From, To, Packet, #stanza_error{} = Err) ->
     Type = xmpp:get_type(Packet),
     if Type == error; Type == result ->
-	    ok;
+        ok;
        true ->
-	    route(From, To, xmpp:make_error(Packet, Err))
+        route(From, To, xmpp:make_error(Packet, Err))
     end.
 
 -spec register_route(binary(), binary()) -> ok.
@@ -150,27 +153,27 @@ register_route(Domain, ServerHost, LocalHint) ->
 -spec register_route(binary(), binary(), local_hint() | undefined, pid()) -> ok.
 register_route(Domain, ServerHost, LocalHint, Pid) ->
     case {jid:nameprep(Domain), jid:nameprep(ServerHost)} of
-	{error, _} ->
-	    erlang:error({invalid_domain, Domain});
-	{_, error} ->
-	    erlang:error({invalid_domain, ServerHost});
-	{LDomain, LServerHost} ->
-	    Mod = get_backend(),
-	    case Mod:register_route(LDomain, LServerHost, LocalHint,
-				    get_component_number(LDomain), Pid) of
-		ok ->
-		    ?DEBUG("Route registered: ~s", [LDomain]);
-		{error, Err} ->
-		    ?ERROR_MSG("Failed to register route ~s: ~p",
-			       [LDomain, Err])
-	    end
+    {error, _} ->
+        erlang:error({invalid_domain, Domain});
+    {_, error} ->
+        erlang:error({invalid_domain, ServerHost});
+    {LDomain, LServerHost} ->
+        Mod = get_backend(),
+        case Mod:register_route(LDomain, LServerHost, LocalHint,
+                    get_component_number(LDomain), Pid) of
+        ok ->
+            ?DEBUG("Route registered: ~s", [LDomain]);
+        {error, Err} ->
+            ?ERROR_MSG("Failed to register route ~s: ~p",
+                   [LDomain, Err])
+        end
     end.
 
 -spec register_routes([{binary(), binary()}]) -> ok.
 register_routes(Domains) ->
     lists:foreach(fun ({Domain, ServerHost}) -> register_route(Domain, ServerHost)
-		  end,
-		  Domains).
+          end,
+          Domains).
 
 -spec unregister_route(binary()) -> ok.
 unregister_route(Domain) ->
@@ -179,25 +182,25 @@ unregister_route(Domain) ->
 -spec unregister_route(binary(), pid()) -> ok.
 unregister_route(Domain, Pid) ->
     case jid:nameprep(Domain) of
-	error ->
-	    erlang:error({invalid_domain, Domain});
-	LDomain ->
-	    Mod = get_backend(),
-	    case Mod:unregister_route(
-		   LDomain, get_component_number(LDomain), Pid) of
-		ok ->
-		    ?DEBUG("Route unregistered: ~s", [LDomain]);
-		{error, Err} ->
-		    ?ERROR_MSG("Failed to unregister route ~s: ~p",
-			       [LDomain, Err])
-	    end
+    error ->
+        erlang:error({invalid_domain, Domain});
+    LDomain ->
+        Mod = get_backend(),
+        case Mod:unregister_route(
+           LDomain, get_component_number(LDomain), Pid) of
+        ok ->
+            ?DEBUG("Route unregistered: ~s", [LDomain]);
+        {error, Err} ->
+            ?ERROR_MSG("Failed to unregister route ~s: ~p",
+                   [LDomain, Err])
+        end
     end.
 
 -spec unregister_routes([binary()]) -> ok.
 unregister_routes(Domains) ->
     lists:foreach(fun (Domain) -> unregister_route(Domain)
-		  end,
-		  Domains).
+          end,
+          Domains).
 
 -spec get_all_routes() -> [binary()].
 get_all_routes() ->
@@ -212,42 +215,42 @@ find_routes() ->
 -spec host_of_route(binary()) -> binary().
 host_of_route(Domain) ->
     case jid:nameprep(Domain) of
-	error ->
-	    erlang:error({invalid_domain, Domain});
-	LDomain ->
-	    Mod = get_backend(),
-	    case Mod:host_of_route(LDomain) of
-		{ok, ServerHost} -> ServerHost;
-		error -> erlang:error({unregistered_route, Domain})
-	    end
+    error ->
+        erlang:error({invalid_domain, Domain});
+    LDomain ->
+        Mod = get_backend(),
+        case Mod:host_of_route(LDomain) of
+        {ok, ServerHost} -> ServerHost;
+        error -> erlang:error({unregistered_route, Domain})
+        end
     end.
 
 -spec is_my_route(binary()) -> boolean().
 is_my_route(Domain) ->
     case jid:nameprep(Domain) of
-	error ->
-	    erlang:error({invalid_domain, Domain});
-	LDomain ->
-	    Mod = get_backend(),
-	    Mod:is_my_route(LDomain)
+    error ->
+        erlang:error({invalid_domain, Domain});
+    LDomain ->
+        Mod = get_backend(),
+        Mod:is_my_route(LDomain)
     end.
 
 -spec is_my_host(binary()) -> boolean().
 is_my_host(Domain) ->
     case jid:nameprep(Domain) of
-	error ->
-	    erlang:error({invalid_domain, Domain});
-	LDomain ->
-	    Mod = get_backend(),
-	    Mod:is_my_host(LDomain)
+    error ->
+        erlang:error({invalid_domain, Domain});
+    LDomain ->
+        Mod = get_backend(),
+        Mod:is_my_host(LDomain)
     end.
 
 -spec process_iq(iq()) -> any().
 process_iq(#iq{to = To} = IQ) ->
     if To#jid.luser == <<"">> ->
-	    ejabberd_local:process_iq(IQ);
+        ejabberd_local:process_iq(IQ);
        true ->
-	    ejabberd_sm:process_iq(IQ)
+        ejabberd_sm:process_iq(IQ)
     end.
 
 %%====================================================================
@@ -281,58 +284,91 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+%% lifang update add
+do_route(From, To, SrcPacket) ->
+    ?DEBUG("route:~n~s", [xmpp:pp(SrcPacket)]),
+	OrigPacket = aa_packet_filter:do({r141016,From, To, SrcPacket}),
+    case ejabberd_hooks:run_fold(filter_packet, OrigPacket, []) of
+    drop ->
+        ok;
+    Packet ->
+        %% To = xmpp:get_to(Packet),
+        LDstDomain = To#jid.lserver,
+        Mod = get_backend(),
+        case Mod:find_routes(LDstDomain) of
+        [] ->
+            ejabberd_s2s:route(Packet);
+        [Route] ->
+            do_route(From, To, Packet, Route);
+        Routes ->
+            %% From = xmpp:get_from(Packet),
+            balancing_route(From, To, Packet, Routes)
+        end,
+        ok
+    end.
+
 -spec do_route(stanza()) -> ok.
 do_route(OrigPacket) ->
     ?DEBUG("route:~n~s", [xmpp:pp(OrigPacket)]),
     case ejabberd_hooks:run_fold(filter_packet, OrigPacket, []) of
-	drop ->
-	    ok;
-	Packet ->
-	    To = xmpp:get_to(Packet),
-	    LDstDomain = To#jid.lserver,
-	    Mod = get_backend(),
-	    case Mod:find_routes(LDstDomain) of
-		[] ->
-		    ejabberd_s2s:route(Packet);
-		[Route] ->
-		    do_route(Packet, Route);
-		Routes ->
-		    From = xmpp:get_from(Packet),
-		    balancing_route(From, To, Packet, Routes)
-	    end,
-	    ok
+    drop ->
+        ok;
+    Packet ->
+        To = xmpp:get_to(Packet),
+        LDstDomain = To#jid.lserver,
+        Mod = get_backend(),
+        case Mod:find_routes(LDstDomain) of
+        [] ->
+            ejabberd_s2s:route(Packet);
+        [Route] ->
+            do_route(Packet, Route);
+        Routes ->
+            From = xmpp:get_from(Packet),
+            balancing_route(From, To, Packet, Routes)
+        end,
+        ok
     end.
 
 -spec do_route(stanza(), #route{}) -> any().
 do_route(Pkt, #route{local_hint = LocalHint,
-		     pid = Pid}) when is_pid(Pid) ->
+             pid = Pid}) when is_pid(Pid) ->
     case LocalHint of
-	{apply, Module, Function} when node(Pid) == node() ->
-	    Module:Function(Pkt);
-	_ ->
-	    Pid ! {route, Pkt}
+    {apply, Module, Function} when node(Pid) == node() ->
+        Module:Function(Pkt);
+    _ ->
+        Pid ! {route, Pkt}
     end;
 do_route(_Pkt, _Route) ->
     ok.
+
+%% lifang update addd
+do_route(From, To, Packet, #route{local_hint = LocalHint,
+             pid = Pid}) when is_pid(Pid) ->
+    case LocalHint of
+    {apply, Module, Function} when node(Pid) == node() ->
+        Module:Function(From, To, Packet);
+    _ ->
+        Pid ! {route, Packet}
+    end.
 
 -spec balancing_route(jid(), jid(), stanza(), [#route{}]) -> any().
 balancing_route(From, To, Packet, Rs) ->
     LDstDomain = To#jid.lserver,
     Value = get_domain_balancing(From, To, LDstDomain),
     case get_component_number(LDstDomain) of
-	undefined ->
-	    case [R || R <- Rs, node(R#route.pid) == node()] of
-		[] ->
-		    R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
-		    do_route(Packet, R);
-		LRs ->
-		    R = lists:nth(erlang:phash(Value, length(LRs)), LRs),
-		    do_route(Packet, R)
-	    end;
-	_ ->
-	    SRs = lists:ukeysort(#route.local_hint, Rs),
-	    R = lists:nth(erlang:phash(Value, length(SRs)), SRs),
-	    do_route(Packet, R)
+    undefined ->
+        case [R || R <- Rs, node(R#route.pid) == node()] of
+        [] ->
+            R = lists:nth(erlang:phash(Value, length(Rs)), Rs),
+            do_route(Packet, R);
+        LRs ->
+            R = lists:nth(erlang:phash(Value, length(LRs)), LRs),
+            do_route(Packet, R)
+        end;
+    _ ->
+        SRs = lists:ukeysort(#route.local_hint, Rs),
+        R = lists:nth(erlang:phash(Value, length(SRs)), SRs),
+        do_route(Packet, R)
     end.
 
 -spec get_component_number(binary()) -> pos_integer() | undefined.
@@ -345,33 +381,33 @@ get_component_number(LDomain) ->
 -spec get_domain_balancing(jid(), jid(), binary()) -> any().
 get_domain_balancing(From, To, LDomain) ->
     case ejabberd_config:get_option(
-	   {domain_balancing, LDomain}, fun(D) when is_atom(D) -> D end) of
-	undefined -> p1_time_compat:system_time();
-	random -> p1_time_compat:system_time();
-	source -> jid:tolower(From);
-	destination -> jid:tolower(To);
-	bare_source -> jid:remove_resource(jid:tolower(From));
-	bare_destination -> jid:remove_resource(jid:tolower(To))
+       {domain_balancing, LDomain}, fun(D) when is_atom(D) -> D end) of
+    undefined -> p1_time_compat:system_time();
+    random -> p1_time_compat:system_time();
+    source -> jid:tolower(From);
+    destination -> jid:tolower(To);
+    bare_source -> jid:remove_resource(jid:tolower(From));
+    bare_destination -> jid:remove_resource(jid:tolower(To))
     end.
 
 -spec get_backend() -> module().
 get_backend() ->
     DBType = case ejabberd_config:get_option(
-		    router_db_type,
-		    fun(T) -> ejabberd_config:v_db(?MODULE, T) end) of
-		 undefined ->
-		     ejabberd_config:default_ram_db(?MODULE);
-		 T ->
-		     T
-	     end,
+            router_db_type,
+            fun(T) -> ejabberd_config:v_db(?MODULE, T) end) of
+         undefined ->
+             ejabberd_config:default_ram_db(?MODULE);
+         T ->
+             T
+         end,
     list_to_atom("ejabberd_router_" ++ atom_to_list(DBType)).
 
 opt_type(domain_balancing) ->
     fun (random) -> random;
-	(source) -> source;
-	(destination) -> destination;
-	(bare_source) -> bare_source;
-	(bare_destination) -> bare_destination
+    (source) -> source;
+    (destination) -> destination;
+    (bare_source) -> bare_source;
+    (bare_destination) -> bare_destination
     end;
 opt_type(domain_balancing_component_number) ->
     fun (N) when is_integer(N), N > 1 -> N end;

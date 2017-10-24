@@ -1,0 +1,35 @@
+-module(aa_http_sup).
+
+-behaviour(supervisor).
+
+%% API
+-export([start_link/0]).
+
+%% Supervisor callbacks
+-export([init/1]).
+
+%%%===================================================================
+%%% API functions
+%%%===================================================================
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+init([]) ->
+	AA ={
+		aa_http,{aa_http, start_link, []},
+		permanent,
+		brutal_kill,
+		worker,
+		[aa_http]
+	},
+	Sysnhttp ={
+		sysn_http,{sysn_http, start_link, []},
+		permanent,
+		brutal_kill,
+		worker,
+		[sysn_http]
+	},	
+    {ok, {{one_for_one, 4, 3600}, [AA,Sysnhttp]}}.
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================

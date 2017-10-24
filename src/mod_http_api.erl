@@ -179,12 +179,22 @@ extract_auth(#request{ip = IP}) ->
 process(_, #request{method = 'POST', data = <<>>}) ->
     ?DEBUG("Bad Request: no data", []),
     badrequest_response(<<"Missing POST data">>);
-process([Call], #request{method = 'POST', data = Data, ip = IPPort} = Req) ->
+process(_, #request{method = 'POST', data = Data, ip = IPPort} = Req) ->
     Version = get_api_version(Req),
+
+    Stanza = fxml_stream:parse_element(Data),
+    From = jlib:string_to_jid(fxml:get_tag_attr_s(<<"from">>,Stanza)),
+    To = jlib:string_to_jid(fxml:get_tag_attr_s(<<"to">>, Stanza)),
+    Log = [jlib:jid_to_string(From), IPPort, jlib:jid_to_string(To), Stanza],
+    ?INFO_MSG("rest ..  ~n\tfrom=~p;~n\tip=~p;~n\tto=~p;~n\tpacket=~p;", Log),
+
     try
-        Args = extract_args(Data),
-        log(Call, Args, IPPort),
-	perform_call(Call, Args, Req, Version)
+        {xmlel, <<"message">>, _Attrs, _Kids} = Stanza,
+        sysn_send:http_send({From,To,Stanza}),
+        {200, [], "Ok"}
+        %% Args = extract_args(Data),
+        %% log(Call, Args, IPPort),
+	    %% perform_call(Call, Args, Req, Version)
     catch
         %% TODO We need to refactor to remove redundant error return formatting
         throw:{error, unknown_command} ->
